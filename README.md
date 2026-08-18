@@ -73,7 +73,6 @@ crpi-j2m2hn2j5pnrlqrp.cn-guangzhou.personal.cr.aliyuncs.com/shitoguaji-images/de
 ### 查看流水线状态
 访问：`https://github.com/shitoguaji/devops-mini-pipeline/actions`
 
----
 
 ## 📁 项目结构
 
@@ -158,46 +157,7 @@ sbom: false
 
 ---
 
-## 🕳️ 坑 4：GitHub Actions 网络无法连接 Docker Hub
-
-**现象**：`docker/login-action` 报错，或者 `build-push-action` 拉取基础镜像超时。
-
-**原因**：GitHub Actions 的 Runner 在国内访问 Docker Hub 不稳定。
-
-**解决方案**：把镜像仓库从 Docker Hub 换成阿里云 ACR。
-
-**修改后的 workflow 关键部分**：
-
-```yaml
-env:
-REGISTRY: crpi-j2m2hn2j5pnrlqrp.cn-guangzhou.personal.cr.aliyuncs.com
-NAMESPACE: shitoguaji-images
-IMAGE_NAME: devops-mini-pipeline
-
-steps:
-- name: Login to Alibaba Cloud ACR
-uses: docker/login-action@v4
-with:
-registry: ${{ env.REGISTRY }}
-username: ${{ secrets.ALIYUN_USERNAME }}
-password: ${{ secrets.ALIYUN_PASSWORD }}
-
-- name: Build and push
-uses: docker/build-push-action@v7
-with:
-context: .
-push: ${{ github.event_name != 'pull_request' }}
-platforms: linux/amd64,linux/arm64
-tags: |
-${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
-${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-provenance: false
-sbom: false
-```
-
----
-
-## 🕳️ 坑 5：VS Code Remote-SSH 连不上服务器
+## 🕳️ 坑 4：VS Code Remote-SSH 连不上服务器
 
 **现象**：VS Code 远程连接报错 `Permission denied (publickey,password).`
 
@@ -229,24 +189,6 @@ type C:\Users\你的用户名\.ssh\id_rsa.pub | ssh 用户名@IP "mkdir -p ~/.ss
 ```
 
 ---
-
-
-**现象**：`docker build` 卡在拉取基础镜像阶段，进度条不动。
-
-**原因**：服务器网络无法访问 `gcr.io`（Google Container Registry）。
-
-**解决方案**：把 `FROM` 换成 Docker Hub 上可访问的镜像。
-
-```dockerfile
-# ❌ 原本的 distroless（无法拉取）
-FROM gcr.io/distroless/python3-debian12 AS runtime
-
-# ✅ 改成 python:3.13-slim
-FROM python:3.13-slim AS runtime
-```
-
----
-
 
 # 📚 学习资源
 

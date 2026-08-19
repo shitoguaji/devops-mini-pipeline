@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # ========== Job 1: 构建并推送镜像到 ACR ==========
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -30,9 +31,58 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/${{ github.event.repository.name }}:latest
-            ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/${{ github.event.repository.name }}:${{ github.sha }}
+            ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/devops-mini-pipeline:latest
+            ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/devops-mini-pipeline:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
           sbom: false
+
+  # ========== Job 2: 部署到 Kind 并验证 ==========
+  deploy-and-verify:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: ci-cluster
+          config: kind-config.yaml
+
+      - name: Create ACR secret in Kind
+        run: |
+          kubectl create secret docker-registry acr-secret \
+            --docker-server=${{ secrets.ALIYUN_REGISTRY }} \
+            --docker-username=${{ secrets.ALIYUN_USERNAME }} \
+            --docker-password=${{ secrets.ALIYUN_PASSWORD }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Load image into Kind
+        run: |
+          kind load docker-image ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/devops-mini-pipeline:latest --name ci-cluster
+
+      # ⭐ 用 envsubst Action 替换变量（不需要 apt-get install）
+      - name: Render deployment.yaml
+        uses: step-security/envsubst-action@v1
+        with:
+          input: k8s/deployment.yaml
+          output: k8s/deployment-rendered.yaml
+        env:
+          ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_NAMESPACE: ${{ secrets.ALIYUN_NAMESPACE }}
+
+      - name: Deploy to Kind
+        run: |
+          kubectl apply -f k8s/deployment-rendered.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl wait --for=condition=ready pod -l app=devops-mini --timeout=120s
+
+      - name: Verify service
+        run: |
+          kubectl port-forward service/devops-mini-svc 8080:80 &
+          sleep 5
+          curl -s http://localhost:8080 | grep "Hello"

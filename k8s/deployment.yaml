@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-mini
+  labels:
+    app: devops-mini
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devops-mini
+  template:
+    metadata:
+      labels:
+        app: devops-mini
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: app
+          image: ${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/devops-mini-pipeline:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_MESSAGE
+              value: "Hello from Kind cluster"
+            - name: PORT
+              value: "8000"
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

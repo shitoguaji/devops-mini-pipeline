@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-mini-svc
+spec:
+  type: NodePort
+  selector:
+    app: devops-mini
+  ports:
+    - protocol: TCP
+      port: 80          # Service 内部端口
+      targetPort: 8000  # 容器端口
+      nodePort: 30080   # 宿主机访问端口

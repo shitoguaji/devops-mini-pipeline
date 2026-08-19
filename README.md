@@ -7,7 +7,10 @@
 这是一个用 Python 内置 `http.server` 模块写的极简 Web 应用，只有一个接口：访问 `/` 时返回环境变量 `APP_MESSAGE` 的值（默认为 "Hello from DevOps Mini Pipeline"）。
 
 **核心目的**：用这个极简应用串联起一套完整的 DevOps 工具链。
-(GitHub Push → Actions → Build → Push to ACR)
+
+## 架构
+GitHub Push → GitHub Actions → Docker Build → Push to Docker Hub → Kind 集群部署 → 自动验证
+
 
 ## 🛠️ 技术栈
 
@@ -56,7 +59,7 @@ docker pull crpi-j2m2hn2j5pnrlqrp.cn-guangzhou.personal.cr.aliyuncs.com/shitogua
 
 docker run -d -p 8000:8000 --name test \
 -e APP_MESSAGE="Hello from ACR" \
-crpi-j2m2hn2j5pnrlqrp.cn-guangzhou.personal.cr.aliyuncs.com/shitoguaji-images/devops-mini-pipeline:latest
+ALIYUN_REGISTRY/ALIYUN_NAMESPACE/devops-mini-pipeline:latest
 ```
 
 ## 🧪 CI/CD 流水线
@@ -78,16 +81,19 @@ crpi-j2m2hn2j5pnrlqrp.cn-guangzhou.personal.cr.aliyuncs.com/shitoguaji-images/de
 
 ```
 devops-mini-pipeline/
-├── server.py                    # HTTP 服务器源码
-├── Dockerfile                   # 多阶段构建
-├── .dockerignore                # Docker 构建忽略文件
 ├── .github/
 │   └── workflows/
-│       └── ci.yml              # GitHub Actions CI/CD
-└── README.md                   # 本文档
+│       └── ci.yml              # GitHub Actions：构建镜像 → 推 Docker Hub → Kind 部署验证
+├── k8s/                        # Kubernetes 清单目录
+│   ├── deployment.yaml         # Deployment + 三探针（liveness/readiness/startup）
+│   └── service.yaml            # NodePort Service
+├── kind-config.yaml            # Kind 集群配置（端口映射 30080）
+├── server.py                   # 极简 HTTP 服务（Python 标准库）
+├── Dockerfile                  # 多阶段构建（builder → distroless runtime）
+├── .dockerignore               # 排除 .git / __pycache__ / .env 等
+└── README.md                   # 项目说明 + 踩坑记录 + 故障排查
 ```
 
----
 
 # ⚠️ 踩坑记录（重要！）
 

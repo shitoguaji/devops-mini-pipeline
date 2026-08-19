@@ -60,11 +60,7 @@ jobs:
             --docker-username=${{ secrets.ALIYUN_USERNAME }} \
             --docker-password=${{ secrets.ALIYUN_PASSWORD }} \
             --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Load image into Kind
-        run: |
-          kind load docker-image ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/devops-mini-pipeline:latest --name ci-cluster
-
+            
       # ⭐ 用 envsubst Action 替换变量（不需要 apt-get install）
       - name: Render deployment.yaml
         uses: step-security/envsubst-action@v1
